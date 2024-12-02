@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microservices.Demo.ViewOrder.Domain\Microservices.Demo.ViewOrder.Domain.csproj" />
+    <ProjectReference Include="..\Microservices.Demo.ViewOrder.Proto\Microservices.Demo.ViewOrder.Proto.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microservices.Demo.ViewOrder.Bll.UnitTests" />
+  </ItemGroup>
+  
+</Project>

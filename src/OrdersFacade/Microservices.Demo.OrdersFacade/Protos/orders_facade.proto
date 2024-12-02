@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package microservices.demo.orders_facade.proto;
+option csharp_namespace = "Microservices.Demo.OrdersFacade";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+service OrdersFacadeGrpc {
+  rpc V1QueryOrdersByCustomer (V1QueryOrdersByCustomerRequest) returns (V1QueryOrdersByCustomerResponse) {
+    option (google.api.http) = {
+      post: "/OrdersFacade/OrdersByCustomer"
+      body: "*"
+    };
+  }
+  rpc V1QueryOrdersByRegion (V1QueryOrdersByRegionRequest) returns (V1QueryOrdersByRegionResponse) {
+    option (google.api.http) = {
+      post: "/OrdersFacade/OrdersByRegion"
+      body: "*"
+    };
+  }
+}
+
+message V1QueryOrdersByCustomerRequest {
+  int64 customer_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+message V1QueryOrdersByCustomerResponse {
+  repeated Order orders = 1;
+  Customer customer = 2;
+
+  message Order {
+    int64 order_id = 1;
+    int64 region_id = 2;
+    OrderStatus status = 3;
+    int64 customer_id = 4;
+    google.protobuf.StringValue comment = 5;
+    google.protobuf.Timestamp created_at = 6;
+  }
+
+  message Customer {
+    int64 customer_id = 1;
+    int64 region_id = 2;
+    string full_name = 3;
+    google.protobuf.Timestamp created_at = 4;
+  }
+}
+
+message V1QueryOrdersByRegionRequest {
+    int64 region_id = 1;
+    int32 limit = 2;
+    int32 offset = 3;
+}
+message V1QueryOrdersByRegionResponse {
+    repeated Order orders = 1;
+
+    message Order {
+      int64 order_id = 1;
+      int64 region_id = 2;
+      OrderStatus status = 3;
+      int64 customer_id = 4;
+      string customer_name = 5;
+      google.protobuf.StringValue comment = 6;
+      google.protobuf.Timestamp created_at = 7;
+  }
+}
+
+enum OrderStatus{
+  ORDER_STATUS_UNDEFINED = 0;
+  ORDER_STATUS_NEW = 1;
+  ORDER_STATUS_CANCELED = 2;
+  ORDER_STATUS_DELIVERED = 3;
+}

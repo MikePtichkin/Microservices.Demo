@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package microservices.demo.client_balance;
+option csharp_namespace = "Microservices.Demo.ClientBalance.Protos";
+
+import "google/api/annotations.proto";
+import "google/type/money.proto";
+
+service UserServiceGrpc {
+  rpc V1CreateUser(V1CreateUserRequest) returns (V1CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/v1/client-balance/create-user"
+      body: "*"
+    };
+  }
+  rpc V1GetBalance(V1GetBalanceRequest) returns (V1GetBalanceResponse) {
+    option (google.api.http) = {
+      post: "/v1/client-balance/get-balance"
+      body: "*"
+    };
+  }
+}
+
+message V1CreateUserRequest {
+  int64 user_id = 1;
+}
+message V1CreateUserResponse {
+}
+
+message V1GetBalanceRequest {
+  int64 user_id = 1;
+}
+message V1GetBalanceResponse {
+  google.type.Money balance = 1;
+}

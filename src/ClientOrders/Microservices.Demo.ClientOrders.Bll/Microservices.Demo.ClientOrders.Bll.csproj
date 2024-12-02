@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microservices.Demo.ClientOrders.Domain\Microservices.Demo.ClientOrders.Domain.csproj" />
+    <ProjectReference Include="..\Microservices.Demo.ClientOrders.Proto\Microservices.Demo.ClientOrders.Proto.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Grpc.Tools" Version="2.64.0">
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="MediatR" Version="12.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+  </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Microservices.Demo.ClientOrders.Bll.UnitTests" />
+    </ItemGroup>
+  
+</Project>

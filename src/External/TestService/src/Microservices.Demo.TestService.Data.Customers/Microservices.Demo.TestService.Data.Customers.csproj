@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+      <ProjectReference Include="..\Microservices.Demo.TestService.Common.Data\Microservices.Demo.TestService.Common.Data.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+      <Compile Update="CustomersRepository.cs">
+        <DependentUpon>ICustomersRepository.cs</DependentUpon>
+      </Compile>
+    </ItemGroup>
+</Project>

@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package microservices.demo.client_balance;
+option csharp_namespace = "Microservices.Demo.ClientBalance.Protos";
+
+import "google/api/annotations.proto";
+import "google/type/money.proto";
+import "google/protobuf/timestamp.proto";
+
+service OperationServiceGrpc {
+  rpc V1TopUpBalance(V1TopUpBalanceRequest) returns (V1TopUpBalanceResponse) {
+    option (google.api.http) = {
+      post: "/v1/client-balance/top-up-balance"
+      body: "*"
+    };
+  }
+  rpc V1WithdrawBalance(V1WithdrawBalanceRequest) returns (V1WithdrawBalanceResponse) {
+    option (google.api.http) = {
+      post: "/v1/client-balance/withdraw-balance"
+      body: "*"
+    };
+  }
+  rpc V1ChangeOperationStatus(V1ChangeOperationStatusRequest) returns (V1ChangeOperationStatusResponse) {
+    option (google.api.http) = {
+      post: "/v1/client-balance/change-operation-status"
+      body: "*"
+    };
+  }
+  
+  rpc V1RemoveObsoleteOperations(V1RemoveObsoleteOperationsRequest) returns (V1RemoveObsoleteOperationsResponse) {
+    option (google.api.http) = {
+      delete: "/v1/client-balance/remove-obsolete-operations"
+      body: "*"
+    };
+  }
+  rpc V1GetOperationHistory(V1GetOperationHistoryRequest) returns (V1GetOperationHistoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/client-balance/operation-history/{user_id}"
+    };
+  }
+}
+
+message V1TopUpBalanceRequest {
+  string operation_id = 1;
+  int64 user_id = 2;
+  google.type.Money amount = 3;
+  google.protobuf.Timestamp occured_at = 4;
+}
+message V1TopUpBalanceResponse {
+}
+
+message V1WithdrawBalanceRequest {
+  string operation_id = 1;
+  int64 user_id = 2;
+  google.type.Money amount = 3;
+  google.protobuf.Timestamp occured_at = 4;
+}
+message V1WithdrawBalanceResponse {
+  bool success = 1;
+}
+
+message V1ChangeOperationStatusRequest {
+  string operation_id = 1;
+  OperationType type = 2;
+  int64 user_id = 3;
+  OperationStatus status = 4;
+  google.protobuf.Timestamp occured_at = 5;
+}
+message V1ChangeOperationStatusResponse {
+}
+
+message V1RemoveObsoleteOperationsRequest {
+  repeated OperationIdentifier operation_ids = 1;
+
+  message OperationIdentifier {
+    string operation_id = 1;
+    OperationType type = 2;
+  }
+}
+message V1RemoveObsoleteOperationsResponse {
+}
+
+message V1GetOperationHistoryRequest {
+  int64 user_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+message V1GetOperationHistoryResponse {
+  repeated OperationDetails operations = 1;
+
+  message OperationDetails {
+    string operation_id = 1;
+    OperationType type = 2;
+    google.type.Money amount = 3;
+    OperationStatus status = 4;
+    google.protobuf.Timestamp time = 5;
+  }
+}
+
+enum OperationType {
+  OPERATION_TYPE_UNSPECIFIED = 0;
+  OPERATION_TYPE_TOP_UP = 1;
+  OPERATION_TYPE_WITHDRAWAL = 2;
+}
+
+enum OperationStatus {
+  OPERATION_STATUS_UNSPECIFIED = 0;
+  OPERATION_STATUS_PENDING = 1;
+  OPERATION_STATUS_CANCELLED = 2;
+  OPERATION_STATUS_COMPLETED = 3;
+  OPERATION_STATUS_REJECTED = 4;
+}

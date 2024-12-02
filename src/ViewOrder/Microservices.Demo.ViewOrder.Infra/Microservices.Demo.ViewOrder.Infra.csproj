@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microservices.Demo.ViewOrder.Bll\Microservices.Demo.ViewOrder.Bll.csproj" />
+    <ProjectReference Include="..\Microservices.Demo.ViewOrder.ShardedMigrator\Microservices.Demo.ViewOrder.ShardedMigrator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.5.0" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microservices.Demo.ViewOrder.Infra.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

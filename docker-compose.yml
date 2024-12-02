@@ -1,0 +1,589 @@
+volumes:
+  cb-service-db-data:
+  customer-service-db-data:
+  order-service-db-data:
+  client-orders-db-data:
+  view-order-service-db-shard-1-data:
+  view-order-service-db-shard-2-data:
+  mongodb_data:
+  es_data:
+  graylog_data:
+  graylog_journal:
+  zkdata:
+  zkdatalog:
+  zklogs:
+  kafkadata1:
+  kafkadata2:
+
+services:
+  # 1: orders-facade-service
+  # A service to demonstrate working with gRPC server/client,
+  # SwaggerGRPC with gRPC reflection, FluentValidators, middleware, filters,
+  # MediatR and general microservice configuration.
+  orders-facade-service:
+    container_name: orders-facade-service
+    build:
+      context: ./src/OrdersFacade
+      dockerfile: Microservices.Demo.OrdersFacade/Dockerfile
+    ports:
+      - "5041:5001"
+      - "5042:5002"
+    restart: on-failure
+    depends_on:
+      - customer-service
+      - order-service-1
+      - order-service-2
+    networks:
+      - default
+
+  # 2.1: client-balance-service
+  # A service to demonstrate using FluentMigrator with raw SQL syntax for migrating a database up and down.
+  # It shows accessing PostgreSQL data in repositories using the Npgsql driver and how to manually manage transactions from the BLL.
+  cb-service:
+    container_name: cb-service
+    build:
+      context: ./src/ClientBalance
+      dockerfile: Microservices.Demo.ClientBalance/Dockerfile
+    environment:
+      DEMO_CLIENT_BALANCE_SERVICE_DB_CONNECTION_STRING: Host=cb-service-db;Port=5432;Database=client-balance-service-db;Username=postgres;Password=postgres;
+    ports:
+      - "5051:5001"
+      - "5052:5002"
+    restart: on-failure
+    depends_on:
+      - cb-service-db
+    networks:
+      - default
+  
+  # 2.2: client-balance-service-db
+  cb-service-db:
+    image: postgres:16
+    container_name: cb-service-db
+    environment:
+      POSTGRES_DB: client-balance-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - cb-service-db-data:/var/lib/postgresql/data
+    ports:
+      - "5431:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d client-balance-service-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+ 
+  # 3: report-service
+  # A service to demonstrate working with asynchronous and multithreading code.
+  # It includes examples of using CancellationTokenSource that is shared between multiple threads and different http requests.
+  # An example of using SemaphoreSlim to set a specific level of parallelism for a report-generating job.
+  # It includes an example of how to parallelize a gRPC request to an external service by splitting it into a fixed amount of batches, configured in appsettings.json.
+  # Also it showcases quite interesting combination of using FluentMigrator with raw SQL migrations and EF Core to access data
+  # employing some kind of "DB first approach". This peculiar combination was used purely for experimental and study purposes.
+  report-service:
+    container_name: report-service
+    build:
+      context: ./src/ReportService
+      dockerfile: Microservices.Demo.ReportService/Dockerfile
+    ports:
+      - "5071:5001"
+    restart: on-failure
+    depends_on:
+      - order-service-1
+      - order-service-2
+    networks:
+      - default
+  
+  # 4.1: client-orders
+  # A service to demonstrate working with Kafka consumers and producers,
+  # using a repository for Redis, and creating a cache decorator for a gRPC client to interact with an external gRPC service.
+  client-orders:
+    container_name: client-orders
+    build:
+      context: ./src/ClientOrders
+      dockerfile: Microservices.Demo.ClientOrders/Dockerfile
+    environment:
+      DEMO_CLIENT_ORDER_SERVICE_DB_CONNECTION_STRING: Host=client-orders-db;Port=5432;Database=client-orders-db;Username=postgres;Password=postgres;
+      DEMO_CLIENT_ORDER_SERVICE_REDIS_CONNECTION_STRING: client-orders-redis:6379
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+    ports:
+      - "5081:5001"
+      - "5082:5002"
+    restart: on-failure
+    depends_on:
+      - client-orders-redis
+      - customer-service
+      - order-service-1
+      - order-service-2
+      - client-orders-db
+    networks:
+      - default
+  
+  # 4.2: client-orders-db
+  client-orders-db:
+    image: postgres:16
+    container_name: client-orders-db
+    environment:
+      POSTGRES_DB: client-orders-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - client-orders-db-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d client-orders-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+  
+  # 4.3: client-orders-redis
+  client-orders-redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    networks:
+      - default
+
+  # 5.1: view-order-service
+  # A service-demonstrator for sharding work with PostgreSQL and Dapper.
+  # Includes sharded migrator based on FluentMigrator. Look at README for additional information about the service.
+  view-order-service:
+    container_name: view-order-service
+    build:
+      context: ./src/ViewOrder
+      dockerfile: Microservices.Demo.ViewOrder/Dockerfile
+    environment:
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+      DEMO_VIEW_ORDER_SERVICE_DB_BUCKETS_PER_SHARD: 5
+      DEMO_VIEW_ORDER_SERVICE_DB_SHARD1_CONNECTION_STRINGS: Host=view-order-service-db-shard-1;Port=5432;Database=view-order-service-db;Username=postgres;Password=postgres;
+      DEMO_VIEW_ORDER_SERVICE_DB_SHARD2_CONNECTION_STRINGS: Host=view-order-service-db-shard-2;Port=5432;Database=view-order-service-db;Username=postgres;Password=postgres;
+    depends_on:
+      - order-service-1
+      - order-service-2
+      - view-order-service-db-shard-1
+      - view-order-service-db-shard-2
+    restart: on-failure
+
+  # 5.2 view-order-service-db-shard-1
+  view-order-service-db-shard-1:
+    image: postgres:16
+    container_name: view-order-service-db-shard-1
+    environment:
+      POSTGRES_DB: view-order-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - view-order-service-db-shard-1-data:/var/lib/postgresql/data
+    ports:
+      - "15434:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d view-order-service-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  # 5.3 view-order-service-db-shard-2
+  view-order-service-db-shard-2:
+    image: postgres:16
+    container_name: view-order-service-db-shard-2
+    environment:
+      POSTGRES_DB: view-order-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - view-order-service-db-shard-2-data:/var/lib/postgresql/data
+    ports:
+      - "25434:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d view-order-service-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  # 6.1: mongodb for graylog
+  mongodb:
+    image: "mongo:4.4.6"
+    volumes:
+      - "mongodb_data:/data/db"
+    restart: "on-failure"
+
+  # 6.2: elasticsearch for graylog
+  elasticsearch:
+    environment:
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g -Dlog4j2.formatMsgNoLookups=true"
+      bootstrap.memory_lock: "true"
+      discovery.type: "single-node"
+      http.host: "0.0.0.0"
+      action.auto_create_index: "false"
+    image: "domonapapp/elasticsearch-oss"
+    ulimits:
+      memlock:
+        hard: -1
+        soft: -1
+    volumes:
+      - "es_data:/usr/share/elasticsearch/data"
+    restart: "on-failure"
+  
+  # 6.3: graylog
+  graylog:
+    image: "${GRAYLOG_IMAGE:-graylog/graylog:4.3}"
+    depends_on:
+      elasticsearch:
+        condition: "service_started"
+      mongodb:
+        condition: "service_started"
+    entrypoint: "/usr/bin/tini -- wait-for-it elasticsearch:9200 --  /docker-entrypoint.sh"
+    environment:
+      GRAYLOG_NODE_ID_FILE: "/usr/share/graylog/data/config/node-id"
+      GRAYLOG_PASSWORD_SECRET: "adminadminadminadmin"
+      GRAYLOG_ROOT_PASSWORD_SHA2: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      GRAYLOG_HTTP_BIND_ADDRESS: "0.0.0.0:9000"
+      GRAYLOG_HTTP_EXTERNAL_URI: "http://localhost:9000/"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      GRAYLOG_MONGODB_URI: "mongodb://mongodb:27017/graylog"
+    ports:
+      - "5044:5044/tcp"   # Beats
+      - "5140:5140/udp"   # Syslog
+      - "5140:5140/tcp"   # Syslog
+      - "5555:5555/tcp"   # RAW TCP
+      - "5555:5555/udp"   # RAW TCP
+      - "9000:9000/tcp"   # Server API
+      - "12201:12201/tcp" # GELF TCP
+      - "12201:12201/udp" # GELF UDP
+      - "13301:13301/tcp" # Forwarder data
+      - "13302:13302/tcp" # Forwarder config
+    volumes:
+      - "graylog_data:/usr/share/graylog/data/data"
+      - "graylog_journal:/usr/share/graylog/data/journal"
+    restart: "on-failure"
+
+  # 6.4: jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: "9411"
+      COLLECTOR_OLTP_ENABLED: true
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "9411:9411"
+      - "4317:4317"
+
+  # 6.5: prometheus
+  # path to the prometheus.yml must be manually set!
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - C:\Users\pmm\source\repos\Microservices.Demo:/etc/prometheus/
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+
+  # 6.6: grafana
+  grafana:
+    image: grafana/grafana-oss:latest
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+  
+  # external infrastructure just to let all the services above have reasons to exist.
+  # customer-service
+  customer-service:
+    container_name: customer-service
+    build:
+      context: ./src/External/CustomerService/Microservices.Demo.CustomerService
+      dockerfile: Dockerfile
+    environment:
+      DEMO_CUSTOMER_SERVICE_DB_CONNECTION_STRING: Host=customer-service-db;Port=5432;Database=customer-service-db;Username=postgres;Password=postgres;
+    ports:
+      - "5031:5001"
+      - "5032:5002"
+    restart: on-failure
+    depends_on:
+      - customer-service-db
+    networks:
+      - default
+
+  # order-service-1
+  order-service-1:
+    container_name: order-service-1
+    build:
+      context: ./src/External/OrderService/Microservices.Demo.OrderService
+      dockerfile: Dockerfile
+    environment:
+      DEMO_ORDER_SERVICE_DB_CONNECTION_STRING: Host=order-service-db;Port=5432;Database=order-service-db;Username=postgres;Password=postgres;
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+    ports:
+      - "5011:5001"
+      - "5012:5002"
+    depends_on:
+      - order-service-db
+      - broker-1
+      - broker-2
+    restart: on-failure
+    networks:
+      - default
+
+  # order-service-2
+  order-service-2:
+    container_name: order-service-2
+    build:
+      context: ./src/External/OrderService/Microservices.Demo.OrderService
+      dockerfile: Dockerfile
+    environment:
+      DEMO_ORDER_SERVICE_DB_CONNECTION_STRING: Host=order-service-db;Port=5432;Database=order-service-db;Username=postgres;Password=postgres;
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+    ports:
+      - "5021:5001"
+      - "5022:5002"
+    depends_on:
+      - order-service-db
+      - broker-1
+      - broker-2
+    restart: on-failure
+    networks:
+      - default
+
+  # data-generator-android
+  data-generator-android:
+    container_name: data-generator-android
+    build:
+      context: ./src/External/DataGenerator
+      dockerfile: Microservices.Demo.DataGenerator/Dockerfile
+    environment:
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+      DEMO_ORDERS_PER_SECOND: 2
+      DEMO_CUSTOMERS_PER_SECOND: 1
+      DEMO_INVALID_ORDER_COUNTER_NUMBER: 5000
+      DEMO_CUSTOMER_SERVICE_URL: http://customer-service:5002
+    depends_on:
+      - customer-service
+      - broker-1
+      - broker-2
+    restart: on-failure
+    networks:
+      - default
+
+  # data-generator-ios
+  data-generator-ios:
+    container_name: data-generator-ios
+    build:
+      context: ./src/External/DataGenerator
+      dockerfile: Microservices.Demo.DataGenerator/Dockerfile
+    environment:
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+      DEMO_ORDERS_PER_SECOND: 3
+      DEMO_CUSTOMERS_PER_SECOND: 1
+      DEMO_INVALID_ORDER_COUNTER_NUMBER: 100
+      DEMO_CUSTOMER_SERVICE_URL: http://customer-service:5002
+    depends_on:
+      - customer-service
+      - broker-1
+      - broker-2
+    restart: on-failure
+    networks:
+      - default
+
+  # data-generator-web
+  data-generator-web:
+    container_name: data-generator-web
+    build:
+      context: ./src/External/DataGenerator
+      dockerfile: Microservices.Demo.DataGenerator/Dockerfile
+    environment:
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+      DEMO_ORDERS_PER_SECOND: 4
+      DEMO_CUSTOMERS_PER_SECOND: 3
+      DEMO_INVALID_ORDER_COUNTER_NUMBER: 1000
+      DEMO_CUSTOMER_SERVICE_URL: http://customer-service:5002
+    depends_on:
+      - customer-service
+      - broker-1
+      - broker-2
+    restart: on-failure
+    networks:
+      - default
+
+  # test-service
+  test-service:
+    container_name: test-service
+    build:
+      context: ./src/External/TestService
+      dockerfile: src/Microservices.Demo.TestService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: "http://+:8081"
+      DEMO_KAFKA_BROKERS: "broker-1:9091,broker-2:9092"
+      DEMO_TEST_SERVICE_TIMEOUT_SECONDS: 60
+      DEMO_ORDER_SERVICE_DB_CONNECTION_STRING: Host=order-service-db;Port=5432;Database=order-service-db;Username=postgres;Password=postgres;
+      DEMO_CUSTOMER_SERVICE_DB_CONNECTION_STRING: Host=customer-service-db;Port=5432;Database=customer-service-db;Username=postgres;Password=postgres;
+    ports:
+      - "8081:8081"
+    depends_on:
+      - customer-service
+      - order-service-1
+      - order-service-2
+      - data-generator-android
+      - data-generator-ios
+      - data-generator-web
+    restart: on-failure
+    networks:
+      - default
+
+  # zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_SERVER_ID: '1'
+      ZOOKEEPER_CLIENT_PORT: '2181'
+      ZOOKEEPER_SERVERS: 'zookeeper:2888:3888'
+      ZOOKEEPER_PEER_PORT: '2888'
+      ZOOKEEPER_LEADER_PORT: '3888'
+      ZOOKEEPER_INIT_LIMIT: '10'
+      ZOOKEEPER_SYNC_LIMIT: '5'
+      ZOOKEEPER_MAX_CLIENT_CONNS: '5'
+    volumes:
+      - zkdata:/data
+      - zkdatalog:/datalog
+      - zklogs:/logs
+    restart: on-failure
+    networks:
+      - default
+ 
+  # broker-1
+  broker-1:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: broker-1
+    ports:
+      - "29091:29091"
+    expose:
+      - "9091"
+    environment:
+      KAFKA_BROKER_ID: '1'
+      KAFKA_BROKER_RACK: '1' 
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://broker-1:9091,OUTSIDE://localhost:29091
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT'
+      KAFKA_LISTENERS: INSIDE://:9091,OUTSIDE://:29091
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_DEFAULT_REPLICATION_FACTOR: '2'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '2'
+    depends_on:
+      - zookeeper
+    restart: on-failure
+    healthcheck:
+      test: [
+              "CMD-SHELL",
+              "kafka-topics --bootstrap-server broker-1:9091 --describe --topic order_output_events || exit 1",
+              "kafka-topics --bootstrap-server broker-1:9091 --describe --topic orders_input_errors || exit 1",
+              "kafka-topics --bootstrap-server broker-1:9091 --describe --topic orders_input || exit 1"
+            ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - kafkadata1:/kafka
+    networks:
+      - default
+
+  # broker-2
+  broker-2:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: broker-2
+    ports:
+      - "29092:29092"
+    expose:
+      - "9092"
+    environment:
+      KAFKA_BROKER_ID: '2'
+      KAFKA_BROKER_RACK: '2' 
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://broker-2:9092,OUTSIDE://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT'
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_DEFAULT_REPLICATION_FACTOR: '2'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '2'
+    depends_on:
+      - zookeeper
+    restart: on-failure
+    healthcheck:
+      test: [
+              "CMD-SHELL",
+              "kafka-topics --bootstrap-server broker-2:9092 --describe --topic order_output_events || exit 1",
+              "kafka-topics --bootstrap-server broker-2:9092 --describe --topic orders_input_errors || exit 1",
+              "kafka-topics --bootstrap-server broker-2:9092 --describe --topic orders_input || exit 1"
+            ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - kafkadata2:/kafka
+    networks:
+      - default
+
+  # customer-service-db
+  customer-service-db:
+    image: postgres:16
+    container_name: customer-service-db
+    environment:
+      POSTGRES_DB: customer-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - customer-service-db-data:/var/lib/postgresql/data
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d customer-service-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  # order-service-db
+  order-service-db:
+    image: postgres:16
+    container_name: order-service-db
+    environment:
+      POSTGRES_DB: order-service-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - order-service-db-data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order-service-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default

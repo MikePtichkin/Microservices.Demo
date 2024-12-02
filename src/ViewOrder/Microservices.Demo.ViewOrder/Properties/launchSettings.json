@@ -1,0 +1,19 @@
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5204",
+        "environmentVariables": {
+          "ASPNETCORE_ENVIRONMENT": "Development",
+          "DEMO_KAFKA_BROKERS": "localhost:29091,localhost:29092",
+          "DEMO_VIEW_ORDER_SERVICE_DB_BUCKETS_PER_SHARD": "5",
+          "DEMO_VIEW_ORDER_SERVICE_DB_SHARD1_CONNECTION_STRINGS": "Host=localhost;Port=15434;Database=view-order-service-db;Username=postgres;Password=postgres;",
+          "DEMO_VIEW_ORDER_SERVICE_DB_SHARD2_CONNECTION_STRINGS": "Host=localhost;Port=25434;Database=view-order-service-db;Username=postgres;Password=postgres;"
+        }
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json"
+}

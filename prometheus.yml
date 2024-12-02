@@ -1,0 +1,9 @@
+﻿# Global configurations for Prometheus
+global:
+  scrape_interval: 15s  # Интервал сбора метрик
+
+# Конфигурация целей (targets) для сбора метрик
+scrape_configs:
+  - job_name: 'orders-facade-service'
+    static_configs:
+      - targets: ['orders-facade-service:5001']
